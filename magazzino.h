@@ -219,6 +219,7 @@ void InsertStock(char * name, int weight, int expire_date, Inventory * inv, int 
     curr->count++;                                                                          // se si eccede la dimensione dell'heap effettuiamo una resize
     if(curr->count > curr->dim)
     {
+        curr->height++;
         ResizeHeap(curr);
     }
     curr->stocks[curr->count - 1] = new;
