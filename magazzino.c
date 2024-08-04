@@ -1,33 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define STANDARD_INVENTORY_LENGHT 10
-#define STANDARD_HEAP_LENGHT 7
-
-typedef struct 
-{
-    int weight;
-    int deadline;
-}stock;
-
-typedef struct ingredient_s
-{
-    char * name;
-    stock ** stocks;
-    int total;
-    int dim;
-    int count;
-    int height;
-    struct ingredient_s * next;
-}Ingredient;
-
-typedef struct 
-{
-    Ingredient ** ingredients;
-    int dim;
-    int count;
-}Inventory;
+#include "magazzino.h"
 
 // inizializazione dell'inventario
 void InitializeInventory(Inventory * new)
@@ -219,6 +193,7 @@ void InsertStock(char * name, int weight, int expire_date, Inventory * inv, int 
     curr->count++;                                                                          // se si eccede la dimensione dell'heap effettuiamo una resize
     if(curr->count > curr->dim)
     {
+        curr->height++;
         ResizeHeap(curr);
     }
     curr->stocks[curr->count - 1] = new;
