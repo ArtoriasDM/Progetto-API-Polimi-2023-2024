@@ -7,14 +7,14 @@
 
 typedef struct 
 {
-    char * name;
+    Ingredient * ingredient;
     int quantity;
 }required_ingredient;
 
 typedef struct recipe_s
 {
     char * name;
-    required_ingredient ** ingredients;
+    required_ingredient ** required_ingredients;
     int dim;
     int tot;
     struct recipe_s * next;
@@ -70,36 +70,3 @@ void ResizeDict(Dict * d)
     d->dim = new_size;
 }
 
-int AddRecipe(Dict * d, char * name)
-{
-    int index;
-    Recipe * new;
-
-    index = hash(name, d->dim);
-    new = d->recipes[index];
-    while(new != NULL && strcmp(new->name, name) != 0)
-    {
-        new = new->next;
-    }
-
-    if(new != NULL)
-    {
-        return 0;
-    }
-
-    d->count++;
-    if(d->count * 100 / d->dim > 70)
-    {
-        ResizeDict(d);
-    }
-    new = malloc(sizeof(Recipe));
-    new->next = NULL;
-    new->name = malloc(sizeof(char) * (strlen(name) + 1));
-    strcpy(new->name, name);
-
-
-    // aggiunta degli ingredienti richiesti
-
-
-    return 1;
-}
