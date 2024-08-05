@@ -30,7 +30,7 @@ int hash(char *, int);
 void ResizeInventory(Inventory *);
 void InitializeHeap(Ingredient *);
 void ResizeHeap(Ingredient *);
-void MinHeapify(Ingredient *);
+void MinHeapify(Ingredient *, int);
 void PopMin(Ingredient *);
 void CheckExpired(Ingredient *, int);
 void InsertStock(char *, int, int, Inventory *, int);
