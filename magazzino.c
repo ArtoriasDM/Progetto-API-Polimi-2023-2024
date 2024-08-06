@@ -4,12 +4,16 @@
 #include "magazzino.h"
 
 // inizializazione dell'inventario
-void InitializeInventory(Inventory * new)
+Inventory * InitializeInventory()
 {
+    Inventory * new;
+
     new = malloc(sizeof(Inventory));
     new->dim = STANDARD_INVENTORY_LENGHT;
     new->count = 0;
     new->ingredients = calloc(STANDARD_INVENTORY_LENGHT, sizeof(Ingredient *));
+
+    return new;
 }
 
 // hash usato nell'inventario
@@ -120,6 +124,7 @@ void MinHeapify(Ingredient * ing, int index)
 void PopMin(Ingredient * ing)
 {
     stock * min;
+    stock * last;
 
     if(ing->count < 1)
     {
@@ -127,8 +132,8 @@ void PopMin(Ingredient * ing)
     }
 
     min = ing->stocks[0];
-    ing->stocks[0] = ing->stocks[ing->count - 1];
-    ing->stocks[ing->count - 1] = min;
+    last = ing->stocks[ing->count - 1];
+    ing->stocks[0] = last;
     ing->total -= min->weight;
     free(min);
     ing->count--;
@@ -138,7 +143,7 @@ void PopMin(Ingredient * ing)
 // controllo degli stock per elimininare quelli scaduti
 void CheckExpired(Ingredient * ing, int t)
 {
-    while(ing->stocks[0]->deadline < t)
+    while(ing->stocks[0] != NULL && ing->stocks[0]->deadline < t)
     {
         PopMin(ing);
     }
@@ -182,6 +187,8 @@ void InsertStock(char * name, int weight, int expire_date, Inventory * inv, int 
             ResizeInventory(inv);                                                           // se la tabella è troppo piena effettuiamo una resize
         }
         curr = CreateIngredient(name);
+        curr->next = inv->ingredients[index];
+        inv->ingredients[index] = curr;
     }
 
     CheckExpired(curr, t);                                                                  // passo 2: ricerca ed eliminazione degli stock scaduti

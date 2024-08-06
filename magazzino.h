@@ -25,7 +25,7 @@ typedef struct
     int count;
 }Inventory;
 
-void InitializeInventory(Inventory *);
+Inventory * InitializeInventory();
 int hash(char *, int);
 void ResizeInventory(Inventory *);
 void InitializeHeap(Ingredient *);

@@ -15,21 +15,27 @@ int main()
     Inventory * magazzino;
     int t = 1;
 
-    InitializeInventory(magazzino);
+    magazzino = InitializeInventory();
     InsertStock("pomodori", 50, 5, magazzino, t);
     InsertStock("pomodori", 50, 6, magazzino, t);
     InsertStock("panna", 10, 5, magazzino, t);
     InsertStock("banana", 100, 6, magazzino, t);
     InsertStock("uova", 20, 8, magazzino, t);
-    VisualizeInventory(magazzino);
+    InsertStock("pomodori", 100, 10, magazzino, t);
+    InsertStock("banana", 200, 7, magazzino, t);
+    InsertStock("panna", 10, 7, magazzino, t);
+    InsertStock("farina", 500, 10, magazzino, t);
+    InsertStock("zucchero", 200, 10, magazzino, t);
     t = 6;
+    InsertStock("cioccolato", 100, 10, magazzino, t);
+    InsertStock("pomodori", 20, 8, magazzino, t);
+    InsertStock("pomodori", 30, 9, magazzino, t);
+    InsertStock("lievito", 50, 20, magazzino, t);
     InsertStock("pomodori", 100, 10, magazzino, t);
     VisualizeInventory(magazzino);
 
     return 0;
 }
-
-
 
 // Funzione di utilità per calcolare il livello di un nodo
 int calculate_level(int index) {
@@ -95,7 +101,7 @@ void VisualizeInventory(Inventory * inv)
         }
         printf("\n\n");
     }
-    printf("LOAD FACTOR: %f.3\n\n", ((float)inv->count / inv->dim));
+    printf("LOAD FACTOR: %.2f\n\n", ((float)inv->count / inv->dim));
 
     for(i = 0; i < inv->dim; i++)
     {
@@ -109,4 +115,5 @@ void VisualizeInventory(Inventory * inv)
         }
     }
 }
+
 
