@@ -9,9 +9,9 @@ Inventory * InitializeInventory()
     Inventory * new;
 
     new = malloc(sizeof(Inventory));
-    new->dim = STANDARD_INVENTORY_LENGHT;
+    new->dim = STANDARD_TABLE_LENGHT;
     new->count = 0;
-    new->ingredients = calloc(STANDARD_INVENTORY_LENGHT, sizeof(Ingredient *));
+    new->ingredients = calloc(STANDARD_TABLE_LENGHT, sizeof(Ingredient *));
 
     return new;
 }

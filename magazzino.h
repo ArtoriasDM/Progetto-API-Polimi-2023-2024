@@ -1,5 +1,5 @@
 
-#define STANDARD_INVENTORY_LENGHT 10
+#define STANDARD_TABLE_LENGHT 10
 #define STANDARD_HEAP_LENGHT 7
 
 typedef struct 

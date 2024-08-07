@@ -1,51 +1,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "magazzino.h"
+#include <magazzino.h>
+#include <ricettario.h>
 
-#define STANDARD_DICT_DIM 10
-
-typedef struct 
+RecipeBook * InitBook()
 {
-    Ingredient * ingredient;
-    int quantity;
-}required_ingredient;
+    RecipeBook * new;
 
-typedef struct recipe_s
-{
-    char * name;
-    required_ingredient ** required_ingredients;
-    int dim;
-    int tot;
-    struct recipe_s * next;
-}Recipe;
+    new = malloc(sizeof(RecipeBook));
+    new->dim = STANDARD_TABLE_LENGHT;
+    new->count = 0;
 
-typedef struct 
-{
-    Recipe ** recipes;
-    int count;
-    int dim;
-}Dict;
+    new->recipes = calloc(new->dim, sizeof(Recipe *));
 
-void initDict(Dict * d)
-{
-    d = malloc(sizeof(Dict));
-    d->count = 0;
-    d->dim = STANDARD_DICT_DIM;
-    d->recipes = calloc(d->dim, sizeof(Recipe *));
+    return new;
 }
 
-void ResizeDict(Dict * d)
+void ResizeBook(RecipeBook * b)
 {
     int i, index, new_size;
     Recipe ** old_table;
     Recipe * el, * curr, * next;
 
-    old_table = d->recipes;
-    new_size = d->dim * 2;
-    d->recipes = calloc(new_size, sizeof(Ingredient *));
+    old_table = b->recipes;
+    new_size = b->dim * 2;
+    b->recipes = calloc(new_size, sizeof(Recipe *));
 
-    for(i = 0; i < d->dim; i++)
+    for(i = 0; i < b->dim; i++)
     {
         curr = old_table[i];
         while(curr != NULL)
@@ -53,10 +35,10 @@ void ResizeDict(Dict * d)
             next = curr->next;
             curr->next = NULL;
             index = hash(curr->name, new_size);
-            if(d->recipes[index] == NULL){
-                d->recipes[index] = curr;
+            if(b->recipes[index] == NULL){
+                b->recipes[index] = curr;
             }else{
-                el = d->recipes[index];
+                el = b->recipes[index];
                 while(el != NULL)
                 {
                     el = el->next;
@@ -67,6 +49,39 @@ void ResizeDict(Dict * d)
         }
     }
     free(old_table);
-    d->dim = new_size;
+    b->dim = new_size;
 }
 
+void AddRecipe(RecipeBook * b, char * name, required_ingredient ** ingredients)
+{
+    Recipe * new, * curr;
+    int index, i;
+
+    index = hash(name, b->dim);
+    curr = b->recipes[index];
+    while(curr != NULL && strcmp(name, curr->name) != 0)            // step 1: verifichiamo ceh nel ricettario non sia già presente la stessa ricetta
+    {
+        curr = curr->next;
+    }
+
+    if(curr != NULL)                                                // step 2: se la ricetta è già presente non procediamo
+    {
+        return;
+    }
+
+    b->count++;                                                     // step 3: se la tabella è troppo piena effettuiamo una resize
+    if(b->count * 100 / b->dim > 70)
+    {
+        ResizeBook(b);
+    }
+
+    new = malloc(sizeof(Recipe));                                   // step 4: creazione della nuova ricerca
+    new->name = malloc(sizeof(char) * (strlen(name) + 1));
+    strcpy(new->name, name);
+    new->required_ingredients = ingredients;
+
+    // aggiungere gestione del totale
+
+    new->next = b->recipes[index];
+    b->recipes[index] = new;
+}
