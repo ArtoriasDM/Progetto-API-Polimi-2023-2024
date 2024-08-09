@@ -52,7 +52,7 @@ void ResizeBook(RecipeBook * b)
     b->dim = new_size;
 }
 
-void AddRecipe(RecipeBook * b, char * name, required_ingredient ** ingredients)
+int AddRecipe(RecipeBook * b, char * name)
 {
     Recipe * new, * curr;
     int index, i;
@@ -66,7 +66,7 @@ void AddRecipe(RecipeBook * b, char * name, required_ingredient ** ingredients)
 
     if(curr != NULL)                                                // step 2: se la ricetta è già presente non procediamo
     {
-        return;
+        return 0;
     }
 
     b->count++;                                                     // step 3: se la tabella è troppo piena effettuiamo una resize
@@ -78,10 +78,39 @@ void AddRecipe(RecipeBook * b, char * name, required_ingredient ** ingredients)
     new = malloc(sizeof(Recipe));                                   // step 4: creazione della nuova ricerca
     new->name = malloc(sizeof(char) * (strlen(name) + 1));
     strcpy(new->name, name);
-    new->required_ingredients = ingredients;
-
-    // aggiungere gestione del totale
-
+    new->required_ingredients = NULL;
+    new->weight = 0;
+    
     new->next = b->recipes[index];
     b->recipes[index] = new;
+
+    return 1;
+}
+
+void AddIngredientToRecipe(char * name, int qnt, Recipe * r, Inventory * m)
+{
+    Ingredient * ing;
+    required_ingredient * new;
+    int index;
+
+    index = hash(name, m->dim);
+    ing = m->ingredients[index];
+    while(ing != NULL && strcmp(ing->name, name) != 0)
+    {
+        ing = ing->next;
+    }
+
+    if(ing == NULL)
+    {
+        ing = CreateIngredient(name);
+        ing->next = m->ingredients[index];
+        m->ingredients[index] = ing;
+    }
+
+    new = malloc(sizeof(required_ingredient));
+    new->ingredient = ing;
+    new->quantity = qnt;
+    new->next = r->required_ingredients;
+    r->required_ingredients = new;
+    r->weight += new->quantity;
 }
