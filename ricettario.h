@@ -24,5 +24,5 @@ typedef struct
 
 RecipeBook * InitBook();
 void ResizeBook(RecipeBook *);
-int AddRecipe(RecipeBook *, char *);
+Recipe * AddRecipe(RecipeBook *, char *);
 void AddIngredientToRecipe(char *, int, Recipe *, Inventory *);
