@@ -15,9 +15,9 @@ int GetCommand(char ** buffer, FILE * fp, int * buffer_size)
     int c;
     int line_lenght;
 
-    if(*(buffer) == NULL)
+    if(*buffer == NULL)
     {
-        *(buffer) = calloc(STANDARD_BUFFER_LENGHT, sizeof(char));
+        *buffer = calloc(STANDARD_BUFFER_LENGHT, sizeof(char));
         *buffer_size = STANDARD_BUFFER_LENGHT;
     }
 
@@ -28,7 +28,7 @@ int GetCommand(char ** buffer, FILE * fp, int * buffer_size)
             *buffer = (char *)realloc(*buffer, *buffer_size);
         }
         if (c == '\n') {
-            *(buffer)[line_lenght++] = '\0';
+            (*buffer)[line_lenght] = '\0';
             break;
         }
         (*buffer)[line_lenght++] = (char)c;
