@@ -55,10 +55,9 @@ typedef struct
 }RecipeBook;
 
 // variabili globali temporanee
-RecipeBook b;
-Recipe r;
-Inventory inv;
-int t;
+RecipeBook * b;
+Inventory * inv;
+int t = 0;
 
 // prototipi delle funzioni usate nella gestione del magazzino e degli stock
 Inventory * InitializeInventory();
@@ -87,6 +86,17 @@ void ParseCommand(char * command, int lenght);
 
 int main()
 {
+    inv = InitializeInventory();
+    b = InitBook();
+    char * buffer = NULL;
+    int buffer_size = 0;
+    int line_lenght;
+
+    line_lenght = GetCommand(&buffer, stdin, &buffer_size);
+    ParseCommand(buffer, line_lenght);
+    line_lenght = GetCommand(&buffer, stdin, &buffer_size);
+    ParseCommand(buffer, line_lenght);
+
     return 0;
 }
 
@@ -454,7 +464,7 @@ void ParseCommand(char * command, int lenght)
     if(strcmp(token, "aggiungi_ricetta") == 0)                      // caso aggiungi ricetta al ricettario
     {
         name = strtok(NULL, DELIMITER);                             // il primo argomento sarà il nome della ricetta da inserire
-        Recipe * new = AddRecipe(&b, name);
+        Recipe * new = AddRecipe(b, name);
         if(!new){
             printf("ignorato\n");
             return;
@@ -465,7 +475,7 @@ void ParseCommand(char * command, int lenght)
             name = token;                                           // gli ingredienti arrivano in coppie <nome, quantità> quindi parsiamo gli argomenti a coppie finchè non finiscono
             token = strtok(NULL, DELIMITER);
             qnt = atoi(token);
-            AddIngredientToRecipe(name, qnt, new, &inv);
+            AddIngredientToRecipe(name, qnt, new, inv);
             token = strtok(NULL, DELIMITER);
         }
         printf("aggiunta\n");    
@@ -478,13 +488,13 @@ void ParseCommand(char * command, int lenght)
             qnt = atoi(token);
             token = strtok(NULL, DELIMITER);
             expire_t = atoi(token);
-            InsertStock(name, qnt, expire_t, &inv, t);
+            InsertStock(name, qnt, expire_t, inv, t);
             token = strtok(NULL, DELIMITER);
         }
         printf("rifornito\n");
     }else if(strcmp(token, "rimuovi_ricetta") == 0){                // caso rimuovi ricetta da inventario, in questo caso l'unico argomento è il nome della ricetta
         name = strtok(NULL, DELIMITER);
-        int res = RemoveRecipe(name, &b);
+        int res = RemoveRecipe(name, b);
         if(res == 0){
             printf("ordini in sospeso\n");
         }else if(res == -1){
