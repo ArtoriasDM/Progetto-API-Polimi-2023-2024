@@ -80,7 +80,7 @@ int RemoveRecipe(char *, RecipeBook *);
 
 // prototipi delle funzioni usate per il parsing dell'input
 int GetCommand(char ** buffer, FILE * fp, int * buffer_size);
-void ParseCommand(char * command, int lenght);
+void ParseCommand(char * command);
 
 // prototipi delle funzioni di utility usate per il debugging
 void VisualizeInventory();
@@ -98,7 +98,7 @@ int main()
     line_lenght = GetCommand(&buffer, stdin, &buffer_size);
     while(line_lenght != -1)
     {
-        ParseCommand(buffer, line_lenght);
+        ParseCommand(buffer);
         VisualizeRecipeBook();
         line_lenght = GetCommand(&buffer, stdin, &buffer_size);
     }
@@ -465,7 +465,7 @@ int GetCommand(char ** buffer, FILE * fp, int * buffer_size)
     return line_lenght;
 }
 
-void ParseCommand(char * command, int lenght)
+void ParseCommand(char * command)
 {
     char * token, * name;
     char * DELIMITER = " ";
@@ -513,6 +513,14 @@ void ParseCommand(char * command, int lenght)
         }else{
             printf("rimossa\n");
         }
+    }else if(strcmp(token, "ordine") == 0){
+        // da aggiungere
+    }else{
+        token = strtok(NULL, DELIMITER);
+        qnt = atoi(token);
+        token = strtok(NULL, DELIMITER);
+        expire_t = atoi(token);
+        // funzione che setta i parametri del camioncino degli ordini
     }
 }
 
