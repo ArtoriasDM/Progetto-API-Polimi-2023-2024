@@ -82,7 +82,10 @@ int RemoveRecipe(char *, RecipeBook *);
 int GetCommand(char ** buffer, FILE * fp, int * buffer_size);
 void ParseCommand(char * command, int lenght);
 
-
+// prototipi delle funzioni di utility usate per il debugging
+void VisualizeInventory();
+void VisualizeRecipe(Recipe *);
+void VisualizeRecipeBook();
 
 int main()
 {
@@ -93,9 +96,12 @@ int main()
     int line_lenght;
 
     line_lenght = GetCommand(&buffer, stdin, &buffer_size);
-    ParseCommand(buffer, line_lenght);
-    line_lenght = GetCommand(&buffer, stdin, &buffer_size);
-    ParseCommand(buffer, line_lenght);
+    while(line_lenght != -1)
+    {
+        ParseCommand(buffer, line_lenght);
+        VisualizeRecipeBook();
+        line_lenght = GetCommand(&buffer, stdin, &buffer_size);
+    }
 
     return 0;
 }
@@ -413,6 +419,11 @@ void AddIngredientToRecipe(char * name, int qnt, Recipe * r, Inventory * m)
         ing = CreateIngredient(name);
         ing->next = m->ingredients[index];
         m->ingredients[index] = ing;
+        m->count++;
+        if(m->count * 100 / m->dim >= 70)
+        {
+            ResizeInventory(m);
+        }
     }
 
     new = malloc(sizeof(required_ingredient));
@@ -503,4 +514,68 @@ void ParseCommand(char * command, int lenght)
             printf("rimossa\n");
         }
     }
+}
+
+// funzioni di utility per il debugging
+void VisualizeInventory()
+{
+    Ingredient * el;
+
+    for(int i = 0; i < inv->dim; i++)
+    {   
+        printf("%d.", i);
+        el = inv->ingredients[i];
+        while(el != NULL)
+        {
+            printf("%s --> ", el->name);
+            el = el->next;
+        }
+        printf("\n");
+    }
+}
+
+void VisualizeRecipeBook()
+{
+    Recipe * el;
+    int i;
+
+    printf("--------------------------------------------------------\n");
+    for(i = 0; i < b->dim; i++)
+    {
+        printf("%d.", i);
+        el = b->recipes[i];
+        while(el != NULL)
+        {
+            printf("%s --> ", el->name);
+            el = el->next;
+        }
+        printf("\n");
+    }
+    printf("--------------------------------------------------------\n");
+    VisualizeInventory();
+    for(i = 0; i < b->dim; i++)
+    {
+        el = b->recipes[i];
+        while(el != NULL)
+        {
+            VisualizeRecipe(el);
+            el = el->next;
+        }
+    }
+}
+
+void VisualizeRecipe(Recipe * r)
+{
+    required_ingredient * el;
+
+    printf("--------------------------------------------------------\n");
+    printf("%s %d\n", r->name, r->weight);
+    printf("--------------------------------------------------------\n");
+    el = r->required_ingredients;
+    while(el != NULL)
+    {
+        printf("%s %d\n", el->ingredient->name, el->quantity);
+        el = el->next;
+    }
+    printf("--------------------------------------------------------\n");
 }
