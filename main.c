@@ -129,6 +129,9 @@ void ParseCommand(char * command);
 void VisualizeInventory();
 void VisualizeRecipe(Recipe *);
 void VisualizeRecipeBook();
+void VisualizeWaitingList();
+void VisualizeReadyOrders();
+void VisualizeIngredient(Ingredient *);
 
 int main()
 {
@@ -144,6 +147,9 @@ int main()
     while(line_lenght != -1)
     {
         ParseCommand(buffer);
+        VisualizeWaitingList();
+        VisualizeReadyOrders();
+        VisualizeInventory();
         VisualizeRecipeBook();
         line_lenght = GetCommand(&buffer, stdin, &buffer_size);
     }
@@ -887,8 +893,10 @@ void ParseCommand(char * command)
 void VisualizeInventory()
 {
     Ingredient * el;
+    int i;
 
-    for(int i = 0; i < inv->dim; i++)
+    printf("--------------------------------------------------------\n");
+    for(i = 0; i < inv->dim; i++)
     {   
         printf("%d.", i);
         el = inv->ingredients[i];
@@ -898,6 +906,18 @@ void VisualizeInventory()
             el = el->next;
         }
         printf("\n");
+    }
+    
+    for(i = 0; i < inv->dim; i++)
+    {
+        el = inv->ingredients[i];
+        while(el)
+        {
+            printf("--------------------------------------------------------\n");
+            VisualizeIngredient(el);
+            printf("--------------------------------------------------------\n");
+            el = el->next;
+        }
     }
 }
 
@@ -919,7 +939,6 @@ void VisualizeRecipeBook()
         printf("\n");
     }
     printf("--------------------------------------------------------\n");
-    VisualizeInventory();
     for(i = 0; i < b->dim; i++)
     {
         el = b->recipes[i];
@@ -945,4 +964,55 @@ void VisualizeRecipe(Recipe * r)
         el = el->next;
     }
     printf("--------------------------------------------------------\n");
+}
+
+void VisualizeWaitingList()
+{
+    Order * el;
+
+    printf("LISTA D'ATTESA: ");
+    if(waiting_orders->front == NULL)
+    {
+        printf("lista vuota\n");
+        return;
+    }
+    el = waiting_orders->front;
+    while(el)
+    {
+        printf("(%s, %d) ", el->recipe->name, el->t_arrival);
+        el = el->next;
+    }
+    printf("\n");
+}
+
+void VisualizeReadyOrders()
+{
+    Order * el;
+    int i;
+
+    printf("ORDINI PRONTI: ");
+    if(ready_orders->count == 0)
+    {
+        printf("lista vuota\n");
+        return;
+    }
+    for(i = 0; i < ready_orders->count;i++)
+    {
+        printf("(%s, %d) ", el->recipe->name, el->t_arrival);
+    }
+    printf("\n");
+}
+
+void VisualizeIngredient(Ingredient * ing)
+{
+    stock * curr;
+    int i;
+
+    printf("%s: ", ing->name);
+    for(i = 0; i < ing->count; i++)
+    {
+        curr = ing->stocks[i];
+        printf("(%d, %d) ", curr->weight, curr->deadline);
+    }
+    printf("\n");
 }
