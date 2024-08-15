@@ -32,17 +32,17 @@ typedef struct
 }Inventory;
 
 // inizio dichiarazione delle strutture dati necessarie per il ricettario
-typedef struct required_ingredient_s
+typedef struct Ingredient_List_s
 {
     Ingredient * ingredient;
     int quantity;
-    struct required_ingredient_s * next;
-}required_ingredient;
+    struct Ingredient_List_s * next;
+}Ingredient_List;
 
 typedef struct recipe_s
 {
     char * name;
-    required_ingredient * required_ingredients;
+    Ingredient_List * required_ingredients;
     int weight;
     struct recipe_s * next;
 }Recipe;
@@ -71,11 +71,20 @@ typedef struct
     Order * tail;
 }Deque;
 
+typedef struct 
+{
+    Order ** orders;
+    int count;
+    int dim;
+    int height;
+}Heap;
+
 // variabili globali temporanee
 RecipeBook * b;
 Inventory * inv;
 Deque * waiting_orders;
-Deque * ready_orders;
+Heap * ready_orders;
+Heap * loaded_orders;
 int t = 0;
 
 // prototipi delle funzioni usate nella gestione del magazzino e degli stock
@@ -83,10 +92,10 @@ Inventory * InitializeInventory();
 Ingredient * CreateIngredient(char *);
 int hash(char *, int);
 void ResizeInventory(Inventory *);
-void InitializeHeap(Ingredient *);
-void ResizeHeap(Ingredient *);
-void MinHeapify(Ingredient *, int);
-void PopMin(Ingredient *);
+void InitializeHeapStocks(Ingredient *);
+void ResizeHeapStocks(Ingredient *);
+void MinHeapifyStocks(Ingredient *, int);
+void PopMinStocks(Ingredient *);
 void RemoveExpired(Ingredient *, int);
 void InsertStock(char *, int, int, Inventory *, int);
 
@@ -101,8 +110,16 @@ int RemoveRecipe(char *, RecipeBook *);
 // prototipi funzioni usate nella gestione degli ordini
 Deque * InitDeque();
 void Enqueue(Order *, Deque *);
+void RemoveFromWaitingList(Order *, Deque *);
+Heap * InitHeapOrders();
+void ResizeHeapOrders(Heap *);
+void MinHeapifyOrders(Heap * h, int index);
+void InsertMinHeap(Order *, Heap *);
+Order * PopMinOrder(Heap * h);
 void ReceiveOrder(Recipe * r, int qnt);
 int CheckIngredients(Order *);
+void PrepareOrder(Order *, Heap * h);
+void PrepareWaitingOrders();
 
 // prototipi delle funzioni usate per il parsing dell'input
 int GetCommand(char ** buffer, FILE * fp, int * buffer_size);
@@ -116,7 +133,7 @@ void VisualizeRecipeBook();
 int main()
 {
     waiting_orders = InitDeque();
-    ready_orders = InitDeque();
+    ready_orders = InitHeapOrders();
     inv = InitializeInventory();
     b = InitBook();
     char * buffer = NULL;
@@ -199,7 +216,7 @@ void ResizeInventory(Inventory * magazzino)
 }
 
 // inizializzazione dell'heap che conterrà i lotti
-void InitializeHeap(Ingredient * ing)
+void InitializeHeapStocks(Ingredient * ing)
 {
     ing->stocks = calloc(STANDARD_ARRAY_LENGHT, sizeof(stock *));
     ing->dim = STANDARD_ARRAY_LENGHT;
@@ -208,7 +225,7 @@ void InitializeHeap(Ingredient * ing)
     ing->height = 3;
 }
 
-void ResizeHeap(Ingredient * ing)
+void ResizeHeapStocks(Ingredient * ing)
 {
     int i, pow, new_dim;
 
@@ -226,7 +243,7 @@ void ResizeHeap(Ingredient * ing)
     ing->dim = new_dim;
 }
 
-void MinHeapify(Ingredient * ing, int index)
+void MinHeapifyStocks(Ingredient * ing, int index)
 {
     int posmin;
     stock * tmp;
@@ -247,12 +264,12 @@ void MinHeapify(Ingredient * ing, int index)
         tmp = ing->stocks[index];
         ing->stocks[index] = ing->stocks[posmin];
         ing->stocks[posmin] = tmp;
-        MinHeapify(ing, posmin); 
+        MinHeapifyStocks(ing, posmin); 
     }
 }
 
 // rimozione del lotto con la scadenza più prossima
-void PopMin(Ingredient * ing)
+void PopMinStocks(Ingredient * ing)
 {
     stock * min;
     stock * last;
@@ -268,7 +285,7 @@ void PopMin(Ingredient * ing)
     ing->total -= min->weight;
     free(min);
     ing->count--;
-    MinHeapify(ing, 0);
+    MinHeapifyStocks(ing, 0);
 }
 
 // controllo degli stock per elimininare quelli scaduti
@@ -276,7 +293,7 @@ void RemoveExpired(Ingredient * ing, int t)
 {
     while(ing->stocks[0] != NULL && ing->stocks[0]->deadline < t)
     {
-        PopMin(ing);
+        PopMinStocks(ing);
     }
 }
 
@@ -290,7 +307,7 @@ Ingredient * CreateIngredient(char * name)
     new->name = malloc(sizeof(char) * (strlen(name) + 1));
     strcpy(new->name, name);
     new->next = NULL;
-    InitializeHeap(new);
+    InitializeHeapStocks(new);
 
     return new;
 }
@@ -332,7 +349,7 @@ void InsertStock(char * name, int weight, int expire_date, Inventory * inv, int 
     if(curr->count > curr->dim)
     {
         curr->height++;
-        ResizeHeap(curr);
+        ResizeHeapStocks(curr);
     }
     curr->stocks[curr->count - 1] = new;
     curr->total += weight;
@@ -432,7 +449,7 @@ Recipe * AddRecipe(RecipeBook * b, char * name)
 void AddIngredientToRecipe(char * name, int qnt, Recipe * r, Inventory * m)
 {
     Ingredient * ing;
-    required_ingredient * new;
+    Ingredient_List * new;
     int index;
 
     index = hash(name, m->dim);
@@ -454,7 +471,7 @@ void AddIngredientToRecipe(char * name, int qnt, Recipe * r, Inventory * m)
         }
     }
 
-    new = malloc(sizeof(required_ingredient));
+    new = malloc(sizeof(Ingredient_List));
     new->ingredient = ing;
     new->quantity = qnt;
     new->next = r->required_ingredients;
@@ -507,14 +524,14 @@ int RemoveRecipe(char * name, RecipeBook * b)
         }
         el = el->next;
     }
-    el = ready_orders->front;
-    while(el && check)
+    
+    for(int i = 0; i < ready_orders->count && check; i++)
     {
+        el = ready_orders->orders[i];
         if(el->recipe == del)
         {
             check = 0;
         }
-        el = el->next;
     }
 
     if(check)
@@ -529,6 +546,107 @@ int RemoveRecipe(char * name, RecipeBook * b)
     }
 
     return check;
+}
+
+// funzione per inizializzare gli heap degli ordini
+Heap * InitHeapOrders()
+{
+    Heap * new;
+    
+    new = malloc(sizeof(Heap));
+    new->orders = calloc(STANDARD_ARRAY_LENGHT, sizeof(Order *));
+    new->dim = STANDARD_ARRAY_LENGHT;
+    new->height = 3;
+    new->count = 0;
+
+    return new;
+}
+
+// funzione per la resize
+void ResizeHeapOrders(Heap * h)
+{
+    int i, pow, new_dim;
+
+    pow = 2;
+    for(i = 0; i < h->height; i++)
+    {
+        pow *= 2;
+    }
+    new_dim = h->dim + pow;
+    h->orders = realloc(h->orders, sizeof(Order *) * new_dim);
+    for(i = h->dim; i < new_dim; i++)
+    {
+        h->orders[i] = NULL;
+    }
+    h->dim = new_dim;
+}
+
+// funzione per mantenere un miniheap
+void MinHeapifyOrders(Heap * h, int index)
+{
+    int posmin;
+    Order * tmp;
+
+    if((2 * index + 1) < h->dim && h->orders[2 * index + 1] != NULL && h->orders[2 * index + 1]->t_arrival < h->orders[index]->t_arrival){
+        posmin = 2 * index + 1;
+    }else{
+        posmin = index;
+    }
+
+    if((2 * index + 2) < h->dim && h->orders[2 * index + 2] != NULL && h->orders[2 * index + 2]->t_arrival < h->orders[posmin]->t_arrival)
+    {
+        posmin = 2 * index + 2;
+    }
+
+    if(posmin != index)
+    {
+        tmp = h->orders[index];
+        h->orders[index] = h->orders[posmin];
+        h->orders[posmin] = tmp;
+        MinHeapifyOrders(h, posmin); 
+    }
+}
+
+// funzione per inserire nel minheap
+void InsertMinHeap(Order * new, Heap * h)
+{   
+    int i;
+    Order * tmp;
+
+    h->count++;                                                                          // se si eccede la dimensione dell'heap effettuiamo una resize
+    if(h->count > h->dim)
+    {
+        h->height++;
+        ResizeHeapOrders(h);
+    }
+    h->orders[h->count - 1] = new;
+    i = h->count - 1;                                                                    // passo 4: inserimento del nuovo lotto e ordinamento dell'array
+    while(i > 0 && h->orders[(i - 1) / 2]->t_arrival > h->orders[i]->t_arrival)
+    {
+        tmp = h->orders[(i - 1) / 2];
+        h->orders[(i - 1) / 2] = h->orders[i];
+        h->orders[i] = tmp;
+        i = (i - 1) / 2;
+    }
+}
+
+Order * PopMinOrder(Heap * h)
+{
+    Order * min;
+    Order * last;
+
+    if(h->count < 1)
+    {
+        return NULL;
+    }
+
+    min = h->orders[0];
+    last = h->orders[h->count - 1];
+    h->orders[0] = last;
+    h->count--;
+    MinHeapifyOrders(h, 0);
+    
+    return min;
 }
 
 // funzione per inizializzare i deque
@@ -554,31 +672,7 @@ void Enqueue(Order * n, Deque * d)
     }
 }
 
-Deque * Dequeue(Deque * d)
-{
-    Order * del;
-
-    if(d->front == NULL)
-    {
-        return NULL;
-    }
-
-    del = d->front;
-    if(d->front->next != NULL){
-        d->front->next->prev = NULL;
-        d->front = d->front->next;
-    }else{
-        d->front = NULL;
-        d->tail = NULL;
-    }
-
-    del->prev = NULL;
-    del->next = NULL;
-
-    return del;
-}
-
-void RemoveFromQueue(Order * del, Deque * d)
+void RemoveFromWaitingList(Order * del, Deque * d)
 {
     if(del == d->front)  
     {
@@ -600,15 +694,41 @@ void RemoveFromQueue(Order * del, Deque * d)
         del->prev->next = del->next;
         del->next->prev = del->prev;
     }
-    
+
     del->next = NULL;
     del->prev = NULL;
+}
+
+void PrepareOrder(Order * ord, Heap * h)
+{
+    Ingredient * curr;
+    Ingredient_List * el;
+    int required;
+
+    el = ord->recipe->required_ingredients;
+    while(el)
+    {
+        required = ord->qnt * el->quantity;
+        curr = el->ingredient;
+        while(required > 0)
+        {
+            required -= curr->stocks[0]->weight;
+            if(required < 0)
+            {
+                curr->stocks[0]->weight = -1 * required;
+            }else{
+                PopMinStocks(curr);
+            }
+        }
+        el = el->next;
+    }
+    InsertMinHeap(ord, h);
 }
 
 // funzione che dato un ordine verifica se sono disponibili le risorse per prepararlo subito
 int CheckIngredients(Order * order)
 {
-    required_ingredient * el;
+    Ingredient_List * el;
     Ingredient * curr;
     int required, result;
 
@@ -638,16 +758,32 @@ void ReceiveOrder(Recipe * r, int qnt)
     new->recipe = r;
     new->t_arrival = t;
     new->qnt = qnt;
+    new->weight = qnt * r->weight;
     new->next = NULL;
     new->prev = NULL;
 
     if(CheckIngredients(new)){
-        // prosegui alla preparazione dell'ordine e mettilo nella lista ready
+        PrepareOrder(new, ready_orders);
     }else{
         Enqueue(new, waiting_orders);
     }
 }
 
+void PrepareWaitingOrders()
+{
+    Order * el;
+
+    el = waiting_orders->front;
+    while(el)
+    {
+        if(CheckIngredients(el))
+        {
+            RemoveFromWaitingList(el, waiting_orders);
+            PrepareOrder(el, ready_orders);
+        }
+        el = el->next;
+    }
+}
 
 int GetCommand(char ** buffer, FILE * fp, int * buffer_size)
 {
@@ -716,6 +852,7 @@ void ParseCommand(char * command)
             token = strtok(NULL, DELIMITER);
         }
         printf("rifornito\n");
+        PrepareWaitingOrders();
     }else if(strcmp(token, "rimuovi_ricetta") == 0){                // caso rimuovi ricetta da inventario, in questo caso l'unico argomento è il nome della ricetta
         name = strtok(NULL, DELIMITER);
         int res = RemoveRecipe(name, b);
@@ -796,7 +933,7 @@ void VisualizeRecipeBook()
 
 void VisualizeRecipe(Recipe * r)
 {
-    required_ingredient * el;
+    Ingredient_List * el;
 
     printf("--------------------------------------------------------\n");
     printf("%s %d\n", r->name, r->weight);
