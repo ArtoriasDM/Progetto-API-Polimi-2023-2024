@@ -55,17 +55,27 @@ typedef struct
 }RecipeBook;
 
 //inizio dichiarazione delle strutture dati necessarie per la gestione degli ordini
-typedef struct 
+typedef struct order_s
 {
     Recipe * recipe;
     int qnt;
     int weight;
     int t_arrival;
+    struct order_s * prev;
+    struct order_s * next;
 }Order;
+
+typedef struct 
+{
+    Order * front;
+    Order * tail;
+}Deque;
 
 // variabili globali temporanee
 RecipeBook * b;
 Inventory * inv;
+Deque * waiting_orders;
+Deque * ready_orders;
 int t = 0;
 
 // prototipi delle funzioni usate nella gestione del magazzino e degli stock
@@ -89,6 +99,8 @@ void AddIngredientToRecipe(char *, int, Recipe *, Inventory *);
 int RemoveRecipe(char *, RecipeBook *);
 
 // prototipi funzioni usate nella gestione degli ordini
+Deque * InitDeque();
+void Enqueue(Order *, Deque *);
 void ReceiveOrder(Recipe * r, int qnt);
 int CheckIngredients(Order *);
 
@@ -103,6 +115,8 @@ void VisualizeRecipeBook();
 
 int main()
 {
+    waiting_orders = InitDeque();
+    ready_orders = InitDeque();
     inv = InitializeInventory();
     b = InitBook();
     char * buffer = NULL;
@@ -463,8 +477,133 @@ Recipe * SearchRecipe(char * name)
     return el;
 }
 
-int RemoveRecipe(char * name, RecipeBook * b){ return 0; }
+int RemoveRecipe(char * name, RecipeBook * b)
+{
+    Recipe * del, * pre;
+    Order * el;
+    int check, index;
 
+    index = hash(name, b->dim);
+    del = b->recipes[index];
+    pre = NULL;
+    while(del && strcmp(del->name, name) != 0)
+    {
+        pre = del;
+        del = del->next;
+    }
+
+    if(del == NULL)
+    {
+        return -1;
+    }
+    check = 1;
+
+    el = waiting_orders->front;
+    while(el && check)
+    {
+        if(el->recipe == del)
+        {
+            check = 0;
+        }
+        el = el->next;
+    }
+    el = ready_orders->front;
+    while(el && check)
+    {
+        if(el->recipe == del)
+        {
+            check = 0;
+        }
+        el = el->next;
+    }
+
+    if(check)
+    {
+        if(!pre){
+            b->recipes[index] = del->next;
+        }else{
+            pre->next = del->next;
+        }
+        free(del->name);
+        free(del);
+    }
+
+    return check;
+}
+
+// funzione per inizializzare i deque
+Deque * InitDeque()
+{
+    Deque * new;
+    new = malloc(sizeof(Deque));
+    new->front = NULL;
+    new->tail  = new->front;
+
+    return new;
+}
+
+void Enqueue(Order * n, Deque * d)
+{
+    if((d->tail == d->front) && d->front == NULL){
+        d->tail = n;
+        d->front = d->tail;
+    }else{
+        d->tail->next = n;
+        n->prev = d->tail;
+        d->tail = n;
+    }
+}
+
+Deque * Dequeue(Deque * d)
+{
+    Order * del;
+
+    if(d->front == NULL)
+    {
+        return NULL;
+    }
+
+    del = d->front;
+    if(d->front->next != NULL){
+        d->front->next->prev = NULL;
+        d->front = d->front->next;
+    }else{
+        d->front = NULL;
+        d->tail = NULL;
+    }
+
+    del->prev = NULL;
+    del->next = NULL;
+
+    return del;
+}
+
+void RemoveFromQueue(Order * del, Deque * d)
+{
+    if(del == d->front)  
+    {
+        d->front = del->next;
+        if (d->front != NULL){
+            d->front->prev = NULL;
+        }
+        else{
+            d->tail = NULL;
+        }
+    }else if(del == d->tail){
+        d->tail = del->prev;
+        if (d->tail != NULL){
+            d->tail->next = NULL;
+        }else{
+            d->front = NULL;
+        }
+    }else{
+        del->prev->next = del->next;
+        del->next->prev = del->prev;
+    }
+    
+    del->next = NULL;
+    del->prev = NULL;
+}
 
 // funzione che dato un ordine verifica se sono disponibili le risorse per prepararlo subito
 int CheckIngredients(Order * order)
@@ -499,11 +638,13 @@ void ReceiveOrder(Recipe * r, int qnt)
     new->recipe = r;
     new->t_arrival = t;
     new->qnt = qnt;
+    new->next = NULL;
+    new->prev = NULL;
 
     if(CheckIngredients(new)){
         // prosegui alla preparazione dell'ordine e mettilo nella lista ready
     }else{
-        // inserisci nella waiting list
+        Enqueue(new, waiting_orders);
     }
 }
 
