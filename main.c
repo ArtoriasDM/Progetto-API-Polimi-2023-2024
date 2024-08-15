@@ -54,6 +54,15 @@ typedef struct
     int count;
 }RecipeBook;
 
+//inizio dichiarazione delle strutture dati necessarie per la gestione degli ordini
+typedef struct 
+{
+    Recipe * recipe;
+    int qnt;
+    int weight;
+    int t_arrival;
+}Order;
+
 // variabili globali temporanee
 RecipeBook * b;
 Inventory * inv;
@@ -68,15 +77,20 @@ void InitializeHeap(Ingredient *);
 void ResizeHeap(Ingredient *);
 void MinHeapify(Ingredient *, int);
 void PopMin(Ingredient *);
-void CheckExpired(Ingredient *, int);
+void RemoveExpired(Ingredient *, int);
 void InsertStock(char *, int, int, Inventory *, int);
 
 // prototipi delle funzioni usate nella gestione del ricettario e delle ricette
 RecipeBook * InitBook();
+Recipe * SearchRecipe(char *);
 Recipe * AddRecipe(RecipeBook *, char *);
 void ResizeBook(RecipeBook *);
 void AddIngredientToRecipe(char *, int, Recipe *, Inventory *);
 int RemoveRecipe(char *, RecipeBook *);
+
+// prototipi funzioni usate nella gestione degli ordini
+void ReceiveOrder(Recipe * r, int qnt);
+int CheckIngredients(Order *);
 
 // prototipi delle funzioni usate per il parsing dell'input
 int GetCommand(char ** buffer, FILE * fp, int * buffer_size);
@@ -244,7 +258,7 @@ void PopMin(Ingredient * ing)
 }
 
 // controllo degli stock per elimininare quelli scaduti
-void CheckExpired(Ingredient * ing, int t)
+void RemoveExpired(Ingredient * ing, int t)
 {
     while(ing->stocks[0] != NULL && ing->stocks[0]->deadline < t)
     {
@@ -294,7 +308,7 @@ void InsertStock(char * name, int weight, int expire_date, Inventory * inv, int 
         inv->ingredients[index] = curr;
     }
 
-    CheckExpired(curr, t);                                                                  // passo 2: ricerca ed eliminazione degli stock scaduti
+    RemoveExpired(curr, t);                                                                  // passo 2: ricerca ed eliminazione degli stock scaduti
 
     new = malloc(sizeof(stock));                                                            // passo 3: inizializzazione del nuovo lotto;
     new->weight = weight;
@@ -434,7 +448,65 @@ void AddIngredientToRecipe(char * name, int qnt, Recipe * r, Inventory * m)
     r->weight += new->quantity;
 }
 
+// funzione per cercare una ricetta per nome
+Recipe * SearchRecipe(char * name)
+{
+    int index;
+    Recipe * el;
+
+    index = hash(name, b->dim);
+    el = b->recipes[index];
+    while(el && strcmp(name, el->name) != 0)
+    {
+        el = el->next;
+    }
+    return el;
+}
+
 int RemoveRecipe(char * name, RecipeBook * b){ return 0; }
+
+
+// funzione che dato un ordine verifica se sono disponibili le risorse per prepararlo subito
+int CheckIngredients(Order * order)
+{
+    required_ingredient * el;
+    Ingredient * curr;
+    int required, result;
+
+    result = 1;
+    el = order->recipe->required_ingredients;
+    while(el && result)
+    {
+        required = order->qnt * el->quantity;
+        curr = el->ingredient;
+        RemoveExpired(curr, t);
+        if(curr->total < required)
+        {
+            result = 0;
+        }
+        el = el->next;
+    }
+
+    return result;
+} 
+
+// funzione che riceve i nuovi ordini e li indirizza nel "percorso" giusto
+void ReceiveOrder(Recipe * r, int qnt)
+{
+    Order * new;
+
+    new = malloc(sizeof(Order));
+    new->recipe = r;
+    new->t_arrival = t;
+    new->qnt = qnt;
+
+    if(CheckIngredients(new)){
+        // prosegui alla preparazione dell'ordine e mettilo nella lista ready
+    }else{
+        // inserisci nella waiting list
+    }
+}
+
 
 int GetCommand(char ** buffer, FILE * fp, int * buffer_size)
 {
@@ -514,7 +586,16 @@ void ParseCommand(char * command)
             printf("rimossa\n");
         }
     }else if(strcmp(token, "ordine") == 0){
-        // da aggiungere
+        name = strtok(NULL, DELIMITER);
+        Recipe * r = SearchRecipe(name);
+        if(r == NULL){
+            printf("rifiutato\n");
+        }else{
+            token = strtok(NULL, DELIMITER);
+            qnt = atoi(token);
+            ReceiveOrder(r, qnt);
+            printf("accettato\n");
+        } 
     }else{
         token = strtok(NULL, DELIMITER);
         qnt = atoi(token);
