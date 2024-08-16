@@ -286,12 +286,19 @@ void PopMinStocks(Ingredient * ing)
     }
 
     min = ing->stocks[0];
-    last = ing->stocks[ing->count - 1];
-    ing->stocks[0] = last;
     ing->total -= min->weight;
-    free(min);
-    ing->count--;
-    MinHeapifyStocks(ing, 0);
+    if(ing->count == 1){
+        free(min);
+        ing->stocks[0] = NULL;
+        ing->count = 0;
+    }else{
+        last = ing->stocks[ing->count - 1];
+        ing->stocks[0] = last;
+        free(min);
+        ing->stocks[ing->count - 1] = NULL;
+        ing->count--;
+        MinHeapifyStocks(ing, 0);
+    }
 }
 
 // controllo degli stock per elimininare quelli scaduti
@@ -709,7 +716,7 @@ void PrepareOrder(Order * ord, Heap * h)
 {
     Ingredient * curr;
     Ingredient_List * el;
-    int required;
+    int required, tmp;
 
     el = ord->recipe->required_ingredients;
     while(el)
@@ -718,10 +725,13 @@ void PrepareOrder(Order * ord, Heap * h)
         curr = el->ingredient;
         while(required > 0)
         {
+            VisualizeIngredient(curr); // temp;
+            tmp = required;
             required -= curr->stocks[0]->weight;
             if(required < 0)
             {
-                curr->stocks[0]->weight = -1 * required;
+                curr->stocks[0]->weight = -1 * required; 
+                curr->total -= tmp;
             }else{
                 PopMinStocks(curr);
             }
@@ -998,6 +1008,7 @@ void VisualizeReadyOrders()
     }
     for(i = 0; i < ready_orders->count;i++)
     {
+        el = ready_orders->orders[i];
         printf("(%s, %d) ", el->recipe->name, el->t_arrival);
     }
     printf("\n");
@@ -1008,7 +1019,7 @@ void VisualizeIngredient(Ingredient * ing)
     stock * curr;
     int i;
 
-    printf("%s: ", ing->name);
+    printf("%s(%d): ", ing->name, ing->total);
     for(i = 0; i < ing->count; i++)
     {
         curr = ing->stocks[i];
