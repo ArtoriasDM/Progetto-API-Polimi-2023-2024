@@ -151,6 +151,7 @@ int main()
         VisualizeReadyOrders();
         VisualizeInventory();
         VisualizeRecipeBook();
+        t++;
         line_lenght = GetCommand(&buffer, stdin, &buffer_size);
     }
 
@@ -654,10 +655,17 @@ Order * PopMinOrder(Heap * h)
     }
 
     min = h->orders[0];
-    last = h->orders[h->count - 1];
-    h->orders[0] = last;
-    h->count--;
-    MinHeapifyOrders(h, 0);
+    if(h->count == 1){
+        h->count = 0;
+        free(min);
+        h->orders[0] = NULL;
+    }else{
+        last = h->orders[h->count - 1];
+        h->orders[0] = last;
+        h->orders[h->count - 1] = NULL;
+        h->count--;
+        MinHeapifyOrders(h, 0);
+    }
     
     return min;
 }
@@ -725,7 +733,6 @@ void PrepareOrder(Order * ord, Heap * h)
         curr = el->ingredient;
         while(required > 0)
         {
-            VisualizeIngredient(curr); // temp;
             tmp = required;
             required -= curr->stocks[0]->weight;
             if(required < 0)
@@ -787,17 +794,20 @@ void ReceiveOrder(Recipe * r, int qnt)
 
 void PrepareWaitingOrders()
 {
-    Order * el;
+    Order * el, * tmp;
 
     el = waiting_orders->front;
     while(el)
     {
         if(CheckIngredients(el))
         {
+            tmp = el->next;
             RemoveFromWaitingList(el, waiting_orders);
             PrepareOrder(el, ready_orders);
+            el = tmp;
+        }else{
+            el = el->next;
         }
-        el = el->next;
     }
 }
 
@@ -989,7 +999,7 @@ void VisualizeWaitingList()
     el = waiting_orders->front;
     while(el)
     {
-        printf("(%s, %d) ", el->recipe->name, el->t_arrival);
+        printf("(%s, %d, %d) ", el->recipe->name, el->qnt, el->t_arrival);
         el = el->next;
     }
     printf("\n");
@@ -1009,7 +1019,7 @@ void VisualizeReadyOrders()
     for(i = 0; i < ready_orders->count;i++)
     {
         el = ready_orders->orders[i];
-        printf("(%s, %d) ", el->recipe->name, el->t_arrival);
+        printf("(%s, %d, %d) ", el->recipe->name, el->qnt, el->t_arrival);
     }
     printf("\n");
 }
