@@ -129,6 +129,9 @@ void ParseCommand(char * command);
 void VisualizeInventory();
 void VisualizeRecipe(Recipe *);
 void VisualizeRecipeBook();
+void VisualizeWaitingList();
+void VisualizeReadyOrders();
+void VisualizeIngredient(Ingredient *);
 
 int main()
 {
@@ -144,7 +147,11 @@ int main()
     while(line_lenght != -1)
     {
         ParseCommand(buffer);
+        VisualizeWaitingList();
+        VisualizeReadyOrders();
+        VisualizeInventory();
         VisualizeRecipeBook();
+        t++;
         line_lenght = GetCommand(&buffer, stdin, &buffer_size);
     }
 
@@ -280,12 +287,19 @@ void PopMinStocks(Ingredient * ing)
     }
 
     min = ing->stocks[0];
-    last = ing->stocks[ing->count - 1];
-    ing->stocks[0] = last;
     ing->total -= min->weight;
-    free(min);
-    ing->count--;
-    MinHeapifyStocks(ing, 0);
+    if(ing->count == 1){
+        free(min);
+        ing->stocks[0] = NULL;
+        ing->count = 0;
+    }else{
+        last = ing->stocks[ing->count - 1];
+        ing->stocks[0] = last;
+        free(min);
+        ing->stocks[ing->count - 1] = NULL;
+        ing->count--;
+        MinHeapifyStocks(ing, 0);
+    }
 }
 
 // controllo degli stock per elimininare quelli scaduti
@@ -641,10 +655,17 @@ Order * PopMinOrder(Heap * h)
     }
 
     min = h->orders[0];
-    last = h->orders[h->count - 1];
-    h->orders[0] = last;
-    h->count--;
-    MinHeapifyOrders(h, 0);
+    if(h->count == 1){
+        h->count = 0;
+        free(min);
+        h->orders[0] = NULL;
+    }else{
+        last = h->orders[h->count - 1];
+        h->orders[0] = last;
+        h->orders[h->count - 1] = NULL;
+        h->count--;
+        MinHeapifyOrders(h, 0);
+    }
     
     return min;
 }
@@ -703,7 +724,7 @@ void PrepareOrder(Order * ord, Heap * h)
 {
     Ingredient * curr;
     Ingredient_List * el;
-    int required;
+    int required, tmp;
 
     el = ord->recipe->required_ingredients;
     while(el)
@@ -712,10 +733,12 @@ void PrepareOrder(Order * ord, Heap * h)
         curr = el->ingredient;
         while(required > 0)
         {
+            tmp = required;
             required -= curr->stocks[0]->weight;
             if(required < 0)
             {
-                curr->stocks[0]->weight = -1 * required;
+                curr->stocks[0]->weight = -1 * required; 
+                curr->total -= tmp;
             }else{
                 PopMinStocks(curr);
             }
@@ -771,17 +794,20 @@ void ReceiveOrder(Recipe * r, int qnt)
 
 void PrepareWaitingOrders()
 {
-    Order * el;
+    Order * el, * tmp;
 
     el = waiting_orders->front;
     while(el)
     {
         if(CheckIngredients(el))
         {
+            tmp = el->next;
             RemoveFromWaitingList(el, waiting_orders);
             PrepareOrder(el, ready_orders);
+            el = tmp;
+        }else{
+            el = el->next;
         }
-        el = el->next;
     }
 }
 
@@ -887,8 +913,10 @@ void ParseCommand(char * command)
 void VisualizeInventory()
 {
     Ingredient * el;
+    int i;
 
-    for(int i = 0; i < inv->dim; i++)
+    printf("--------------------------------------------------------\n");
+    for(i = 0; i < inv->dim; i++)
     {   
         printf("%d.", i);
         el = inv->ingredients[i];
@@ -898,6 +926,18 @@ void VisualizeInventory()
             el = el->next;
         }
         printf("\n");
+    }
+    
+    for(i = 0; i < inv->dim; i++)
+    {
+        el = inv->ingredients[i];
+        while(el)
+        {
+            printf("--------------------------------------------------------\n");
+            VisualizeIngredient(el);
+            printf("--------------------------------------------------------\n");
+            el = el->next;
+        }
     }
 }
 
@@ -919,7 +959,6 @@ void VisualizeRecipeBook()
         printf("\n");
     }
     printf("--------------------------------------------------------\n");
-    VisualizeInventory();
     for(i = 0; i < b->dim; i++)
     {
         el = b->recipes[i];
@@ -945,4 +984,56 @@ void VisualizeRecipe(Recipe * r)
         el = el->next;
     }
     printf("--------------------------------------------------------\n");
+}
+
+void VisualizeWaitingList()
+{
+    Order * el;
+
+    printf("LISTA D'ATTESA: ");
+    if(waiting_orders->front == NULL)
+    {
+        printf("lista vuota\n");
+        return;
+    }
+    el = waiting_orders->front;
+    while(el)
+    {
+        printf("(%s, %d, %d) ", el->recipe->name, el->qnt, el->t_arrival);
+        el = el->next;
+    }
+    printf("\n");
+}
+
+void VisualizeReadyOrders()
+{
+    Order * el;
+    int i;
+
+    printf("ORDINI PRONTI: ");
+    if(ready_orders->count == 0)
+    {
+        printf("lista vuota\n");
+        return;
+    }
+    for(i = 0; i < ready_orders->count;i++)
+    {
+        el = ready_orders->orders[i];
+        printf("(%s, %d, %d) ", el->recipe->name, el->qnt, el->t_arrival);
+    }
+    printf("\n");
+}
+
+void VisualizeIngredient(Ingredient * ing)
+{
+    stock * curr;
+    int i;
+
+    printf("%s(%d): ", ing->name, ing->total);
+    for(i = 0; i < ing->count; i++)
+    {
+        curr = ing->stocks[i];
+        printf("(%d, %d) ", curr->weight, curr->deadline);
+    }
+    printf("\n");
 }
