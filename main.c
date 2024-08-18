@@ -54,7 +54,7 @@ typedef struct
     int count;
 }RecipeBook;
 
-//inizio dichiarazione delle strutture dati necessarie per la gestione degli ordini
+// inizio dichiarazione delle strutture dati necessarie per la gestione degli ordini
 typedef struct order_s
 {
     Recipe * recipe;
@@ -79,12 +79,20 @@ typedef struct
     int height;
 }Heap;
 
+// struttura dati che rappresenta il furgone del corriere
+typedef struct 
+{
+    int max_load;
+    int period;
+}Carrier;
+
 // variabili globali temporanee
 RecipeBook * b;
 Inventory * inv;
 Deque * waiting_orders;
 Heap * ready_orders;
 Heap * loaded_orders;
+Carrier carrier;
 int t = 0;
 
 // prototipi delle funzioni usate nella gestione del magazzino e degli stock
@@ -92,6 +100,7 @@ Inventory * InitializeInventory();
 Ingredient * CreateIngredient(char *);
 int hash(char *, int);
 void ResizeInventory(Inventory *);
+void DestroyInventory();
 void InitializeHeapStocks(Ingredient *);
 void ResizeHeapStocks(Ingredient *);
 void MinHeapifyStocks(Ingredient *, int);
@@ -104,14 +113,17 @@ RecipeBook * InitBook();
 Recipe * SearchRecipe(char *);
 Recipe * AddRecipe(RecipeBook *, char *);
 void ResizeBook(RecipeBook *);
+void DestroyRecipeBook();
 void AddIngredientToRecipe(char *, int, Recipe *, Inventory *);
 int RemoveRecipe(char *, RecipeBook *);
 
 // prototipi funzioni usate nella gestione degli ordini
 Deque * InitDeque();
+void DestroyDeque();
 void Enqueue(Order *, Deque *);
 void RemoveFromWaitingList(Order *, Deque *);
 Heap * InitHeapOrders();
+void DestroyHeapOrders(Heap *);
 void ResizeHeapOrders(Heap *);
 void MinHeapifyOrders(Heap * h, int index);
 void InsertMinHeap(Order *, Heap *);
@@ -220,6 +232,31 @@ void ResizeInventory(Inventory * magazzino)
     }
     free(old_table);
     magazzino->dim = new_size;
+}
+
+// funzione per liberare l'inventario
+void DestroryInventory()
+{
+    Ingredient * next, * del;
+    int i, j;
+
+    for(i = 0; i < inv->dim; i++)
+    {
+        del = inv->ingredients[i];
+        while(del)
+        {
+            next = del->next;
+            for(j = 0; j < del->count; j++)
+            {
+                free(del->stocks[j]);
+            }
+            free(del->stocks);
+            free(del->name);
+            del = next;
+        }
+    }
+    
+    free(inv);
 }
 
 // inizializzazione dell'heap che conterrà i lotti
@@ -425,6 +462,34 @@ void ResizeBook(RecipeBook * b)
     b->dim = new_size;
 }
 
+// funzione per liberare il ricettario
+void DestroyRecipeBook()
+{
+    Recipe * del, * next;
+    Ingredient_List * remove, * follow;
+    int i;
+
+    for(i = 0; i < b->dim; i++)
+    {
+        del = b->recipes[i];
+        while(del)
+        {
+            next = del->next;
+            remove = del->required_ingredients;
+            while(remove)
+            {
+                follow = remove->next;
+                free(remove);
+                remove = follow;
+            }
+            free(del->name);
+            free(del);
+            del = next;
+        }
+    }
+    free(b);
+}
+
 Recipe * AddRecipe(RecipeBook * b, char * name)
 {
     Recipe * new, * curr;
@@ -511,6 +576,7 @@ Recipe * SearchRecipe(char * name)
 int RemoveRecipe(char * name, RecipeBook * b)
 {
     Recipe * del, * pre;
+    Ingredient_List * remove, * follow;
     Order * el;
     int check, index;
 
@@ -555,6 +621,13 @@ int RemoveRecipe(char * name, RecipeBook * b)
         }else{
             pre->next = del->next;
         }
+        remove = del->required_ingredients;
+        while(remove)
+        {
+            follow = remove->next;
+            free(remove);
+            remove = follow;
+        }
         free(del->name);
         free(del);
     }
@@ -593,6 +666,17 @@ void ResizeHeapOrders(Heap * h)
         h->orders[i] = NULL;
     }
     h->dim = new_dim;
+}
+
+void DestroyHeapOrders(Heap * h)
+{
+    int i;
+
+    for(i = 0; i < h->count; i++)
+    {
+        free(h->orders[i]);
+    }
+    free(h);
 }
 
 // funzione per mantenere un miniheap
@@ -679,6 +763,20 @@ Deque * InitDeque()
     new->tail  = new->front;
 
     return new;
+}
+
+void DestroyDeque()
+{
+    Order * del, * next;
+
+    del = waiting_orders->front;
+    while(del)
+    {
+        next = del->next;
+        free(del);
+        del = next;
+    }
+    free(waiting_orders);
 }
 
 void Enqueue(Order * n, Deque * d)
@@ -902,10 +1000,9 @@ void ParseCommand(char * command)
         } 
     }else{
         token = strtok(NULL, DELIMITER);
-        qnt = atoi(token);
+        carrier.max_load = atoi(token);
         token = strtok(NULL, DELIMITER);
-        expire_t = atoi(token);
-        // funzione che setta i parametri del camioncino degli ordini
+        carrier.period = atoi(token);
     }
 }
 
