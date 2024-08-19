@@ -114,6 +114,7 @@ Recipe * SearchRecipe(char *);
 Recipe * AddRecipe(char *);
 void ResizeBook(RecipeBook *);
 void DestroyRecipeBook();
+void ClearIngredientList(Ingredient_List *);
 void AddIngredientToRecipe(char *, int, Recipe *);
 int RemoveRecipe(char *);
 
@@ -486,7 +487,6 @@ void ResizeBook(RecipeBook * b)
 void DestroyRecipeBook()
 {
     Recipe * del, * next;
-    Ingredient_List * remove, * follow;
     int i;
 
     for(i = 0; i < b->dim; i++)
@@ -495,19 +495,25 @@ void DestroyRecipeBook()
         while(del)
         {
             next = del->next;
-            remove = del->required_ingredients;
-            while(remove)
-            {
-                follow = remove->next;
-                free(remove);
-                remove = follow;
-            }
+            ClearIngredientList(del->required_ingredients);
             free(del->name);
             free(del);
             del = next;
         }
     }
     free(b);
+}
+
+void ClearIngredientList(Ingredient_List * head)
+{
+    Ingredient_List * del;
+
+    while(head)
+    {
+        del = head;
+        head = head->next;
+        free(del);
+    }
 }
 
 Recipe * AddRecipe(char * name)
@@ -596,7 +602,6 @@ Recipe * SearchRecipe(char * name)
 int RemoveRecipe(char * name)
 {
     Recipe * del, * pre;
-    Ingredient_List * remove, * follow;
     Order * el;
     int check, index;
 
@@ -641,13 +646,7 @@ int RemoveRecipe(char * name)
         }else{
             pre->next = del->next;
         }
-        remove = del->required_ingredients;
-        while(remove)
-        {
-            follow = remove->next;
-            free(remove);
-            remove = follow;
-        }
+        ClearIngredientList(del->required_ingredients);
         free(del->name);
         free(del);
     }
