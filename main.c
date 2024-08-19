@@ -128,10 +128,14 @@ void ResizeHeapOrders(Heap *);
 void MinHeapifyOrders(Heap * h, int index);
 void InsertMinHeap(Order *, Heap *);
 Order * PopMinOrder(Heap * h);
+void MaxHeapifyOrders(Heap *, int);
+void InsertMaxHeap(Order *, Heap *);
+void PopMaxOrder(Heap *);
 void ReceiveOrder(Recipe * r, int qnt);
 int CheckIngredients(Order *);
 void PrepareOrder(Order *, Heap * h);
 void PrepareWaitingOrders();
+void LoadCarrier();
 
 // prototipi delle funzioni usate per il parsing dell'input
 int GetCommand(char ** buffer, FILE * fp, int * buffer_size);
@@ -149,6 +153,7 @@ int main()
 {
     waiting_orders = InitDeque();
     ready_orders = InitHeapOrders();
+    loaded_orders = InitHeapOrders();
     inv = InitializeInventory();
     b = InitBook();
     char * buffer = NULL;
@@ -158,6 +163,10 @@ int main()
     line_lenght = GetCommand(&buffer, stdin, &buffer_size);
     while(line_lenght != -1)
     {
+        if((t % carrier.period) == 0)
+        {
+            LoadCarrier();                        // main da sistemare
+        }
         ParseCommand(buffer);
         VisualizeWaitingList();
         VisualizeReadyOrders();
@@ -166,6 +175,12 @@ int main()
         t++;
         line_lenght = GetCommand(&buffer, stdin, &buffer_size);
     }
+
+    DestroyInventory();                                //fase di liberazione della memoria
+    DestroyDeque();                                     
+    DestroyHeapOrders(ready_orders);
+    DestroyHeapOrders(loaded_orders);
+    DestroyRecipeBook();
 
     return 0;
 }
@@ -235,7 +250,7 @@ void ResizeInventory(Inventory * magazzino)
 }
 
 // funzione per liberare l'inventario
-void DestroryInventory()
+void DestroyInventory()
 {
     Ingredient * next, * del;
     int i, j;
@@ -614,6 +629,15 @@ int RemoveRecipe(char * name, RecipeBook * b)
         }
     }
 
+    for(int i = 0; i < loaded_orders->count && check; i++)
+    {
+        el = loaded_orders->orders[i];
+        if(el->recipe == del)
+        {
+            check = 0;
+        }
+    }
+
     if(check)
     {
         if(!pre){
@@ -752,6 +776,82 @@ Order * PopMinOrder(Heap * h)
     }
     
     return min;
+}
+
+// funzione per tenere gli ordini in un maxheap ordinato secondo peso e istante di arrivo
+void MaxHeapifyOrders(Heap * h, int index)
+{
+    int posmax, left, right;
+    Order * tmp;
+
+    left = 2 * index + 1;
+    right = 2 * index + 2;
+    if(left < h->count && (h->orders[left]->weight > h->orders[index]->weight || (h->orders[left]->weight == h->orders[index]->weight && h->orders[left]->t_arrival < h->orders[index]->t_arrival))){
+        posmax = left;
+    }else{
+        posmax = index;
+    }
+
+    if(right < h->count && (h->orders[right]->weight > h->orders[posmax]->weight || (h->orders[right]->weight == h->orders[posmax]->weight && h->orders[right]->t_arrival < h->orders[posmax]->t_arrival)))
+    {
+        posmax = right;
+    }
+
+    if(posmax != index)
+    {
+        tmp = h->orders[index];
+        h->orders[index] = h->orders[posmax];
+        h->orders[posmax] = tmp;
+        MaxHeapifyOrders(h, posmax); 
+    }
+}
+
+void InsertMaxnHeap(Order * new, Heap * h)
+{   
+    int i, father;
+    Order * tmp;
+
+    h->count++;                                                                          // se si eccede la dimensione dell'heap effettuiamo una resize
+    if(h->count > h->dim)
+    {
+        h->height++;
+        ResizeHeapOrders(h);
+    }
+    h->orders[h->count - 1] = new;
+    i = h->count - 1;
+    father = (i - 1) / 2;                                                                    // passo 4: inserimento del nuovo lotto e ordinamento dell'array
+    while(i > 0 && (h->orders[father]->weight < h->orders[i]->weight || (h->orders[father]->weight == h->orders[i]->weight && h->orders[father]->t_arrival > h->orders[i]->t_arrival)))
+    {
+        tmp = h->orders[father];
+        h->orders[father] = h->orders[i];
+        h->orders[i] = tmp;
+        i = father;
+        father = (i - 1) / 2;
+    }
+}
+
+void PopMaxOrder(Heap * h)
+{
+    Order * max;
+    Order * last;
+
+    if(h->count < 1)
+    {
+        return;
+    }
+
+    max = h->orders[0];
+    if(h->count == 1){
+        h->count = 0;
+        free(max);
+        h->orders[0] = NULL;
+    }else{
+        last = h->orders[h->count - 1];
+        h->orders[0] = last;
+        h->orders[h->count - 1] = NULL;
+        h->count--;
+        MaxHeapifyOrders(h, 0);
+    }
 }
 
 // funzione per inizializzare i deque
@@ -906,6 +1006,33 @@ void PrepareWaitingOrders()
         }else{
             el = el->next;
         }
+    }
+}
+
+void LoadCarrier()
+{
+    int load;
+    Order * curr;
+
+    load = 0;
+    while(ready_orders->count && load + ready_orders->orders[0]->weight <= carrier.max_load)
+    {
+        curr = PopMinOrder(ready_orders);
+        load += curr->weight;
+        InsertMaxnHeap(curr, loaded_orders);
+    }
+
+    if(loaded_orders->count == 0)
+    {
+        printf("camioncino vuoto\n");
+        return;
+    }
+
+    while(loaded_orders->count)
+    {
+        curr = loaded_orders->orders[0];
+        printf("%d %s %d\n", curr->t_arrival, curr->recipe->name, curr->qnt);
+        PopMaxOrder(loaded_orders);
     }
 }
 
