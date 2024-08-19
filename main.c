@@ -147,6 +147,7 @@ void VisualizeRecipe(Recipe *);
 void VisualizeRecipeBook();
 void VisualizeWaitingList();
 void VisualizeReadyOrders();
+void VisualizeLoadedOrders();
 void VisualizeIngredient(Ingredient *);
 
 int main()
@@ -160,10 +161,13 @@ int main()
     int buffer_size = 0;
     int line_lenght;
 
+    line_lenght = GetCommand(&buffer, stdin, &buffer_size);        // il primo comando sono i parametri del carrier
+    ParseCommand(buffer);
+
     line_lenght = GetCommand(&buffer, stdin, &buffer_size);
     while(line_lenght != -1)
     {
-        if((t % carrier.period) == 0)
+        if((t % carrier.period) == 0 && t != 0)
         {
             LoadCarrier();                        // main da sistemare
         }
@@ -172,8 +176,8 @@ int main()
         VisualizeReadyOrders();
         VisualizeInventory();
         VisualizeRecipeBook();
-        t++;
         line_lenght = GetCommand(&buffer, stdin, &buffer_size);
+        t++;
     }
 
     DestroyInventory();                                //fase di liberazione della memoria
@@ -629,15 +633,6 @@ int RemoveRecipe(char * name, RecipeBook * b)
         }
     }
 
-    for(int i = 0; i < loaded_orders->count && check; i++)
-    {
-        el = loaded_orders->orders[i];
-        if(el->recipe == del)
-        {
-            check = 0;
-        }
-    }
-
     if(check)
     {
         if(!pre){
@@ -1022,6 +1017,8 @@ void LoadCarrier()
         InsertMaxnHeap(curr, loaded_orders);
     }
 
+    VisualizeLoadedOrders();
+
     if(loaded_orders->count == 0)
     {
         printf("camioncino vuoto\n");
@@ -1126,7 +1123,6 @@ void ParseCommand(char * command)
             printf("accettato\n");
         } 
     }else{
-        token = strtok(NULL, DELIMITER);
         carrier.max_load = atoi(token);
         token = strtok(NULL, DELIMITER);
         carrier.period = atoi(token);
@@ -1243,6 +1239,25 @@ void VisualizeReadyOrders()
     for(i = 0; i < ready_orders->count;i++)
     {
         el = ready_orders->orders[i];
+        printf("(%s, %d, %d) ", el->recipe->name, el->qnt, el->t_arrival);
+    }
+    printf("\n");
+}
+
+void VisualizeLoadedOrders()
+{
+    Order * el;
+    int i;
+
+    printf("ORDINI CARICATI: ");
+    if(loaded_orders->count == 0)
+    {
+        printf("lista vuota\n");
+        return;
+    }
+    for(i = 0; i < loaded_orders->count;i++)
+    {
+        el = loaded_orders->orders[i];
         printf("(%s, %d, %d) ", el->recipe->name, el->qnt, el->t_arrival);
     }
     printf("\n");
