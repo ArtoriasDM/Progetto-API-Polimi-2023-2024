@@ -93,7 +93,7 @@ Deque * waiting_orders;
 Heap * ready_orders;
 Heap * loaded_orders;
 Carrier carrier;
-int t = 0;
+int t;
 
 // prototipi delle funzioni usate nella gestione del magazzino e degli stock
 Inventory * InitializeInventory();
@@ -105,17 +105,17 @@ void InitializeHeapStocks(Ingredient *);
 void ResizeHeapStocks(Ingredient *);
 void MinHeapifyStocks(Ingredient *, int);
 void PopMinStocks(Ingredient *);
-void RemoveExpired(Ingredient *, int);
-void InsertStock(char *, int, int, Inventory *, int);
+void RemoveExpired(Ingredient *);
+void InsertStock(char *, int, int);
 
 // prototipi delle funzioni usate nella gestione del ricettario e delle ricette
 RecipeBook * InitBook();
 Recipe * SearchRecipe(char *);
-Recipe * AddRecipe(RecipeBook *, char *);
+Recipe * AddRecipe(char *);
 void ResizeBook(RecipeBook *);
 void DestroyRecipeBook();
-void AddIngredientToRecipe(char *, int, Recipe *, Inventory *);
-int RemoveRecipe(char *, RecipeBook *);
+void AddIngredientToRecipe(char *, int, Recipe *);
+int RemoveRecipe(char *);
 
 // prototipi funzioni usate nella gestione degli ordini
 Deque * InitDeque();
@@ -164,6 +164,7 @@ int main()
     line_lenght = GetCommand(&buffer, stdin, &buffer_size);        // il primo comando sono i parametri del carrier
     ParseCommand(buffer);
 
+    t = 0;
     line_lenght = GetCommand(&buffer, stdin, &buffer_size);
     while(line_lenght != -1)
     {
@@ -359,7 +360,7 @@ void PopMinStocks(Ingredient * ing)
 }
 
 // controllo degli stock per elimininare quelli scaduti
-void RemoveExpired(Ingredient * ing, int t)
+void RemoveExpired(Ingredient * ing)
 {
     while(ing->stocks[0] != NULL && ing->stocks[0]->deadline < t)
     {
@@ -383,7 +384,7 @@ Ingredient * CreateIngredient(char * name)
 }
 
 // inserimento di un nuovo stock a seguito di un rifornimento
-void InsertStock(char * name, int weight, int expire_date, Inventory * inv, int t)
+void InsertStock(char * name, int weight, int expire_date)
 {
     int index, i;
     Ingredient * curr;
@@ -409,7 +410,7 @@ void InsertStock(char * name, int weight, int expire_date, Inventory * inv, int 
         inv->ingredients[index] = curr;
     }
 
-    RemoveExpired(curr, t);                                                                  // passo 2: ricerca ed eliminazione degli stock scaduti
+    RemoveExpired(curr);                                                                  // passo 2: ricerca ed eliminazione degli stock scaduti
 
     new = malloc(sizeof(stock));                                                            // passo 3: inizializzazione del nuovo lotto;
     new->weight = weight;
@@ -509,7 +510,7 @@ void DestroyRecipeBook()
     free(b);
 }
 
-Recipe * AddRecipe(RecipeBook * b, char * name)
+Recipe * AddRecipe(char * name)
 {
     Recipe * new, * curr;
     int index, i;
@@ -544,14 +545,14 @@ Recipe * AddRecipe(RecipeBook * b, char * name)
     return b->recipes[index];
 }
 
-void AddIngredientToRecipe(char * name, int qnt, Recipe * r, Inventory * m)
+void AddIngredientToRecipe(char * name, int qnt, Recipe * r)
 {
     Ingredient * ing;
     Ingredient_List * new;
     int index;
 
-    index = hash(name, m->dim);
-    ing = m->ingredients[index];
+    index = hash(name, inv->dim);
+    ing = inv->ingredients[index];
     while(ing != NULL && strcmp(ing->name, name) != 0)
     {
         ing = ing->next;
@@ -560,12 +561,12 @@ void AddIngredientToRecipe(char * name, int qnt, Recipe * r, Inventory * m)
     if(ing == NULL)
     {
         ing = CreateIngredient(name);
-        ing->next = m->ingredients[index];
-        m->ingredients[index] = ing;
-        m->count++;
-        if(m->count * 100 / m->dim >= 70)
+        ing->next = inv->ingredients[index];
+        inv->ingredients[index] = ing;
+        inv->count++;
+        if(inv->count * 100 / inv->dim >= 70)
         {
-            ResizeInventory(m);
+            ResizeInventory(inv);
         }
     }
 
@@ -592,7 +593,7 @@ Recipe * SearchRecipe(char * name)
     return el;
 }
 
-int RemoveRecipe(char * name, RecipeBook * b)
+int RemoveRecipe(char * name)
 {
     Recipe * del, * pre;
     Ingredient_List * remove, * follow;
@@ -954,7 +955,7 @@ int CheckIngredients(Order * order)
     {
         required = order->qnt * el->quantity;
         curr = el->ingredient;
-        RemoveExpired(curr, t);
+        RemoveExpired(curr);
         if(curr->total < required)
         {
             result = 0;
@@ -1072,7 +1073,7 @@ void ParseCommand(char * command)
     if(strcmp(token, "aggiungi_ricetta") == 0)                      // caso aggiungi ricetta al ricettario
     {
         name = strtok(NULL, DELIMITER);                             // il primo argomento sarà il nome della ricetta da inserire
-        Recipe * new = AddRecipe(b, name);
+        Recipe * new = AddRecipe(name);
         if(!new){
             printf("ignorato\n");
             return;
@@ -1083,7 +1084,7 @@ void ParseCommand(char * command)
             name = token;                                           // gli ingredienti arrivano in coppie <nome, quantità> quindi parsiamo gli argomenti a coppie finchè non finiscono
             token = strtok(NULL, DELIMITER);
             qnt = atoi(token);
-            AddIngredientToRecipe(name, qnt, new, inv);
+            AddIngredientToRecipe(name, qnt, new);
             token = strtok(NULL, DELIMITER);
         }
         printf("aggiunta\n");    
@@ -1096,14 +1097,14 @@ void ParseCommand(char * command)
             qnt = atoi(token);
             token = strtok(NULL, DELIMITER);
             expire_t = atoi(token);
-            InsertStock(name, qnt, expire_t, inv, t);
+            InsertStock(name, qnt, expire_t);
             token = strtok(NULL, DELIMITER);
         }
         printf("rifornito\n");
         PrepareWaitingOrders();
     }else if(strcmp(token, "rimuovi_ricetta") == 0){                // caso rimuovi ricetta da inventario, in questo caso l'unico argomento è il nome della ricetta
         name = strtok(NULL, DELIMITER);
-        int res = RemoveRecipe(name, b);
+        int res = RemoveRecipe(name);
         if(res == 0){
             printf("ordini in sospeso\n");
         }else if(res == -1){
