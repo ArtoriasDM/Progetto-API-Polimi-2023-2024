@@ -182,6 +182,11 @@ int main()
         t++;
     }
 
+    if((t % carrier.period) == 0)
+    {
+        LoadCarrier();
+    }
+
     DestroyInventory();                                //fase di liberazione della memoria
     DestroyDeque();                                     
     DestroyHeapOrders(ready_orders);
@@ -519,7 +524,7 @@ void ClearIngredientList(Ingredient_List * head)
 Recipe * AddRecipe(char * name)
 {
     Recipe * new, * curr;
-    int index, i;
+    int index;
 
     index = hash(name, b->dim);
     curr = b->recipes[index];
@@ -760,7 +765,6 @@ Order * PopMinOrder(Heap * h)
     min = h->orders[0];
     if(h->count == 1){
         h->count = 0;
-        free(min);
         h->orders[0] = NULL;
     }else{
         last = h->orders[h->count - 1];
@@ -1123,9 +1127,9 @@ void ParseCommand(char * command)
             printf("accettato\n");
         } 
     }else{
-        carrier.max_load = atoi(token);
-        token = strtok(NULL, DELIMITER);
         carrier.period = atoi(token);
+        token = strtok(NULL, DELIMITER);
+        carrier.max_load = atoi(token);
     }
 }
 
