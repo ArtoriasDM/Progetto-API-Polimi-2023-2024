@@ -167,6 +167,8 @@ int main()
 
     t = 0;
     line_lenght = GetCommand(&buffer, stdin, &buffer_size);
+    //printf("%d\n", t);
+    //printf("%s\n", buffer);
     while(line_lenght != -1)
     {
         if((t % carrier.period) == 0 && t != 0)
@@ -174,12 +176,14 @@ int main()
             LoadCarrier();                        // main da sistemare
         }
         ParseCommand(buffer);
-        VisualizeWaitingList();
-        VisualizeReadyOrders();
-        VisualizeInventory();
-        VisualizeRecipeBook();
+        //VisualizeWaitingList();
+        //VisualizeReadyOrders();
+        //VisualizeInventory();
+        //VisualizeRecipeBook();
         line_lenght = GetCommand(&buffer, stdin, &buffer_size);
+        //printf("%s\n", buffer);
         t++;
+        //printf("%d\n", t);
     }
 
     if((t % carrier.period) == 0)
@@ -187,6 +191,7 @@ int main()
         LoadCarrier();
     }
 
+    free(buffer);
     DestroyInventory();                                //fase di liberazione della memoria
     DestroyDeque();                                     
     DestroyHeapOrders(ready_orders);
@@ -247,11 +252,11 @@ void ResizeInventory(Inventory * magazzino)
                 magazzino->ingredients[index] = curr;
             }else{
                 el = magazzino->ingredients[index];
-                while(el != NULL)
+                while(el->next != NULL)
                 {
                     el = el->next;
                 }
-                el = curr;
+                el->next = curr;
             }
             curr = next;
         }
@@ -281,7 +286,7 @@ void DestroyInventory()
             del = next;
         }
     }
-    
+    free(inv->ingredients);
     free(inv);
 }
 
@@ -368,7 +373,7 @@ void PopMinStocks(Ingredient * ing)
 // controllo degli stock per elimininare quelli scaduti
 void RemoveExpired(Ingredient * ing)
 {
-    while(ing->stocks[0] != NULL && ing->stocks[0]->deadline < t)
+    while(ing->stocks[0] != NULL && ing->stocks[0]->deadline <= t)
     {
         PopMinStocks(ing);
     }
@@ -410,6 +415,7 @@ void InsertStock(char * name, int weight, int expire_date)
         if(inv->count * 100 / inv->dim > 70)
         {
             ResizeInventory(inv);                                                           // se la tabella è troppo piena effettuiamo una resize
+            index = hash(name, inv->dim);
         }
         curr = CreateIngredient(name);
         curr->next = inv->ingredients[index];
@@ -457,7 +463,7 @@ void ResizeBook(RecipeBook * b)
 {
     int i, index, new_size;
     Recipe ** old_table;
-    Recipe * el, * curr, * next;
+    Recipe * curr, * next;
 
     old_table = b->recipes;
     new_size = b->dim * 2;
@@ -469,18 +475,9 @@ void ResizeBook(RecipeBook * b)
         while(curr != NULL)
         {
             next = curr->next;
-            curr->next = NULL;
             index = hash(curr->name, new_size);
-            if(b->recipes[index] == NULL){
-                b->recipes[index] = curr;
-            }else{
-                el = b->recipes[index];
-                while(el != NULL)
-                {
-                    el = el->next;
-                }
-                el = curr;
-            }
+            curr->next = b->recipes[index];
+            b->recipes[index] = curr;
             curr = next;
         }
     }
@@ -506,6 +503,7 @@ void DestroyRecipeBook()
             del = next;
         }
     }
+    free(b->recipes);
     free(b);
 }
 
@@ -542,6 +540,7 @@ Recipe * AddRecipe(char * name)
     if(b->count * 100 / b->dim > 70)
     {
         ResizeBook(b);
+        index = hash(name, b->dim);        // necessario rehash dopo resize
     }
 
     new = malloc(sizeof(Recipe));                                   // step 4: creazione della nuova ricetta
@@ -700,6 +699,7 @@ void DestroyHeapOrders(Heap * h)
     {
         free(h->orders[i]);
     }
+    free(h->orders);
     free(h);
 }
 
@@ -805,7 +805,7 @@ void MaxHeapifyOrders(Heap * h, int index)
     }
 }
 
-void InsertMaxnHeap(Order * new, Heap * h)
+void InsertMaxHeap(Order * new, Heap * h)
 {   
     int i, father;
     Order * tmp;
@@ -1018,10 +1018,10 @@ void LoadCarrier()
     {
         curr = PopMinOrder(ready_orders);
         load += curr->weight;
-        InsertMaxnHeap(curr, loaded_orders);
+        InsertMaxHeap(curr, loaded_orders);
     }
 
-    VisualizeLoadedOrders();
+    //VisualizeLoadedOrders();
 
     if(loaded_orders->count == 0)
     {
@@ -1104,6 +1104,7 @@ void ParseCommand(char * command)
             token = strtok(NULL, DELIMITER);
         }
         printf("rifornito\n");
+        //VisualizeInventory();
         PrepareWaitingOrders();
     }else if(strcmp(token, "rimuovi_ricetta") == 0){                // caso rimuovi ricetta da inventario, in questo caso l'unico argomento è il nome della ricetta
         name = strtok(NULL, DELIMITER);
