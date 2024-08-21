@@ -283,6 +283,7 @@ void DestroyInventory()
             }
             free(del->stocks);
             free(del->name);
+            free(del);
             del = next;
         }
     }
@@ -845,6 +846,7 @@ void PopMaxOrder(Heap * h)
         free(max);
         h->orders[0] = NULL;
     }else{
+        free(max);
         last = h->orders[h->count - 1];
         h->orders[0] = last;
         h->orders[h->count - 1] = NULL;
