@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define STANDARD_BUFFER_LENGHT 255
+#define STANDARD_BUFFER_LENGHT 1024
 #define STANDARD_TABLE_LENGHT 10
 #define STANDARD_ARRAY_LENGHT 7
 
@@ -140,6 +140,7 @@ void LoadCarrier();
 
 // prototipi delle funzioni usate per il parsing dell'input
 int GetCommand(char ** buffer, FILE * fp, int * buffer_size);
+int GetCommand_m(char ** buffer, FILE * fp, int * buffer_size);
 void ParseCommand(char * command);
 
 // prototipi delle funzioni di utility usate per il debugging
@@ -180,7 +181,7 @@ int main()
         //VisualizeReadyOrders();
         //VisualizeInventory();
         //VisualizeRecipeBook();
-        line_lenght = GetCommand(&buffer, stdin, &buffer_size);
+        line_lenght = GetCommand_m(&buffer, stdin, &buffer_size);
         //printf("%s\n", buffer);
         t++;
         //printf("%d\n", t);
@@ -541,7 +542,7 @@ Recipe * AddRecipe(char * name)
     if(b->count * 100 / b->dim > 70)
     {
         ResizeBook(b);
-        index = hash(name, b->dim);        // necessario rehash dopo resize
+        index = hash(name, b->dim);                                 // necessario rehash dopo resize
     }
 
     new = malloc(sizeof(Recipe));                                   // step 4: creazione della nuova ricetta
@@ -1066,6 +1067,34 @@ int GetCommand(char ** buffer, FILE * fp, int * buffer_size)
     if(line_lenght == 0 || c == EOF)
         return -1;
     return line_lenght;
+}
+
+int GetCommand_m(char ** buffer, FILE * fp, int * buffer_size)
+{
+    int lenght;
+
+    if(*buffer == NULL)
+    {
+        *buffer = calloc(STANDARD_BUFFER_LENGHT, sizeof(char));
+        *buffer_size = STANDARD_BUFFER_LENGHT;
+    }
+
+    lenght = 0;
+    while (fgets((*buffer + lenght), (*buffer_size - lenght), fp) != NULL)
+    {
+        lenght = strlen(*buffer);
+        if((*buffer)[lenght - 1] == '\n'){
+            (*buffer)[lenght - 1] = '\0';
+            break;
+        }else{
+            *buffer_size *= 2;
+            *buffer = realloc(*buffer, *buffer_size);
+        }
+    }
+    
+    if(lenght == 0)
+        return -1;
+    return lenght; 
 }
 
 void ParseCommand(char * command)
